@@ -64,10 +64,10 @@ class DWLConfig:
 
     # ============ PD 控制参数 ============
     # stiffness/damping: leg_roll=200, leg_yaw=200, leg_pitch=350, knee=350, ankle=15
-    kps = np.array([200., 200., 350., 350., 15., 15.,
-                    200., 200., 350., 350., 15., 15.], dtype=np.float64)
-    kds = np.array([10., 10., 10., 10., 10., 10.,
-                    10., 10., 10., 10., 10., 10.], dtype=np.float64)
+    kps = np.array([200., 200., 500., 500., 15., 15.,   # leg_roll, leg_yaw, leg_pitch, knee, ankle
+                    200., 200., 500., 500., 15., 15.], dtype=np.float64)  # kp: 350→500 for XBot-L
+    kds = np.array([10., 10., 15., 15., 10., 10.,       # 膝关节阻尼也略微提高
+                    10., 10., 15., 15., 10., 10.], dtype=np.float64)
     tau_limit = 200.0           # 力矩限幅 (Nm)
     action_scale = 0.25         # action -> 目标关节角度的缩放因子
 
