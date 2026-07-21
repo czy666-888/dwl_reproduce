@@ -64,10 +64,10 @@ class DWLConfig:
 
     # ============ PD 控制参数 ============
     # stiffness/damping: leg_roll=200, leg_yaw=200, leg_pitch=350, knee=350, ankle=15
-    kps = np.array([200., 200., 500., 500., 15., 15.,   # leg_roll, leg_yaw, leg_pitch, knee, ankle
-                    200., 200., 500., 500., 15., 15.], dtype=np.float64)  # kp: 350→500 for XBot-L
-    kds = np.array([10., 10., 15., 15., 10., 10.,       # 膝关节阻尼也略微提高
-                    10., 10., 15., 15., 10., 10.], dtype=np.float64)
+    kps = np.array([200., 200., 350., 350., 15., 15.,
+                    200., 200., 350., 350., 15., 15.], dtype=np.float64)
+    kds = np.array([10., 10., 10., 10., 10., 10.,
+                    10., 10., 10., 10., 10., 10.], dtype=np.float64)
     tau_limit = 200.0           # 力矩限幅 (Nm)
     action_scale = 0.25         # action -> 目标关节角度的缩放因子
 
@@ -100,7 +100,7 @@ class DWLConfig:
     push_interval_s = 4.0
 
     # ============ 终止条件 ============
-    termination_height = 0.35        # 基座低于此高度终止
+    termination_height = 0.55        # 基座低于此高度终止 (0.35→0.55, 禁止深蹲)
     termination_orientation = 1.0    # roll/pitch 超过此值终止 (rad)
 
     # ============ 奖励权重 (Table V) ============
@@ -109,7 +109,7 @@ class DWLConfig:
         lin_vel = 1.0                 # 线速度跟踪
         ang_vel = 1.0                 # 角速度跟踪
         orientation = 1.0             # 姿态跟踪
-        height = 0.5                  # 身高跟踪
+        height = 2.0                  # 身高跟踪 (0.5→2.0, 强制站高)
         periodic_contact = 1.0        # 周期性接触力
         periodic_vel = 1.0            # 周期性足部速度
         foot_height = 1.0             # 足部高度跟踪
