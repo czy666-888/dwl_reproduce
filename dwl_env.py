@@ -621,23 +621,88 @@ class XBotLMuJoCoEnv:
 
 
 class VecEnv:
-    """向量化环境包装器: 管理多个独立 MuJoCo 环境 (共享模型以节省内存)"""
-    def __init__(self, cfg, num_envs=None):
+    """向量化环境包装器: 多线程并行管理多个独立 MuJoCo 环境 (共享模型以节省内存)
+
+    MuJoCo的mj_step是C函数(释放GIL), numpy运算也释放GIL, 因此ThreadPoolExecutor可实现真实并行。
+    """
+    def __init__(self, cfg, num_envs=None, num_workers=None):
         if num_envs is None:
             num_envs = cfg.num_envs
         self.cfg = cfg
         self.num_envs = num_envs
 
-        # 只加载一次模型，所有环境共享 (节省 ~40MB/env * num_envs)
+        # 线程数: 默认取CPU核数和8的较小值
+        if num_workers is None:
+            num_workers = min(os.cpu_count() or 8, 8)
+        self.num_workers = max(1, num_workers)
+
+        # 只加载一次模型, 所有环境共享 (节省 ~40MB/env * num_envs)
         model_path = os.path.join(os.path.dirname(__file__), cfg.model_path)
         shared_model = mujoco.MjModel.from_xml_path(model_path)
         shared_model.opt.timestep = cfg.sim_dt
-        print(f"[Env] Shared model loaded, creating {num_envs} data instances...")
+        print(f"[Env] Shared model loaded, creating {num_envs} data instances ({self.num_workers} workers)...")
         self.envs = [XBotLMuJoCoEnv(cfg, model=shared_model, render=False) for _ in range(num_envs)]
 
         # 观测历史缓冲 (用于GRU序列输入)
         self.seq_len = 10  # DWL论文 seq_len=10
         self.obs_history = [deque(maxlen=self.seq_len) for _ in range(num_envs)]
+
+        # 预分配线程安全的result buffers
+        self._obs_buf = np.zeros((num_envs, cfg.obs_dim), dtype=np.float32)
+        self._priv_buf = np.zeros((num_envs, cfg.privileged_dim), dtype=np.float32)
+        self._reward_buf = np.zeros(num_envs, dtype=np.float32)
+        self._done_buf = np.zeros(num_envs, dtype=bool)
+
+    def _step_range(self, start, end, actions):
+        """Thread worker: step envs in [start, end), 写入共享buffer的不同索引(线程安全)"""
+        for i in range(start, end):
+            obs, priv, r, done, info = self.envs[i].step(actions[i])
+            self._obs_buf[i] = obs
+            self._priv_buf[i] = priv
+            self._reward_buf[i] = r
+            self._done_buf[i] = done
+            self._info_list[i] = info
+
+    def _step_range_with_behavior(self, start, end, actions):
+        """Thread worker with behavior data collection"""
+        for i in range(start, end):
+            obs, priv, r, done, info = self.envs[i].step(actions[i])
+            self._obs_buf[i] = obs
+            self._priv_buf[i] = priv
+            self._reward_buf[i] = r
+            self._done_buf[i] = done
+            self._info_list[i] = info
+            self._behavior_list[i] = info.get('behavior', {})
+
+    def _parallel_step(self, actions, collect_behavior=False):
+        """多线程并行步进所有环境"""
+        from concurrent.futures import ThreadPoolExecutor
+
+        step_fn = self._step_range_with_behavior if collect_behavior else self._step_range
+
+        if self.num_workers <= 1:
+            step_fn(0, self.num_envs, actions)
+        else:
+            chunk_size = max(1, (self.num_envs + self.num_workers - 1) // self.num_workers)
+            with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+                futures = []
+                for i in range(0, self.num_envs, chunk_size):
+                    end = min(i + chunk_size, self.num_envs)
+                    futures.append(executor.submit(step_fn, i, end, actions))
+                for f in futures:
+                    f.result()
+
+        # 串行处理重置和历史更新 (快速, 无需并行)
+        for i in range(self.num_envs):
+            obs_i = self._obs_buf[i]
+            self.obs_history[i].append(obs_i)
+
+            if self._done_buf[i]:
+                obs_i, priv_i = self.envs[i].reset()
+                self._obs_buf[i] = obs_i
+                self._priv_buf[i] = priv_i
+                for _ in range(self.seq_len):
+                    self.obs_history[i].append(obs_i)
 
     def reset(self):
         """重置所有环境"""
@@ -648,72 +713,32 @@ class VecEnv:
             obs, priv = env.reset()
             all_obs[i] = obs
             all_priv[i] = priv
-            # 初始化历史 (填充当前帧)
             for _ in range(self.seq_len):
                 self.obs_history[i].append(obs)
 
         return all_obs, all_priv
 
     def step(self, actions):
-        """对所有环境执行一步
+        """对所有环境执行一步 (多线程并行)
         actions: (num_envs, 12)
         返回: obs_batch, priv_batch, rewards, dones, infos
         """
-        obs_batch = np.zeros((self.num_envs, self.cfg.obs_dim), dtype=np.float32)
-        priv_batch = np.zeros((self.num_envs, self.cfg.privileged_dim), dtype=np.float32)
-        rewards = np.zeros(self.num_envs, dtype=np.float32)
-        dones = np.zeros(self.num_envs, dtype=bool)
-        infos = []
+        self._info_list = [None] * self.num_envs
+        self._parallel_step(actions, collect_behavior=False)
 
-        for i in range(self.num_envs):
-            obs, priv, r, done, info = self.envs[i].step(actions[i])
-            obs_batch[i] = obs
-            priv_batch[i] = priv
-            rewards[i] = r
-            dones[i] = done
-            infos.append(info)
-
-            # 更新观测历史
-            self.obs_history[i].append(obs)
-
-            # 自动重置终止的环境
-            if done:
-                obs, priv = self.envs[i].reset()
-                obs_batch[i] = obs
-                priv_batch[i] = priv
-                for _ in range(self.seq_len):
-                    self.obs_history[i].append(obs)
-
-        return obs_batch, priv_batch, rewards, dones, infos
+        return (self._obs_buf.copy(), self._priv_buf.copy(),
+                self._reward_buf.copy(), self._done_buf.copy(),
+                list(self._info_list))
 
     def step_with_behavior(self, actions):
         """同 step(), 但额外收集所有env的behavior数据用于日志"""
-        obs_batch = np.zeros((self.num_envs, self.cfg.obs_dim), dtype=np.float32)
-        priv_batch = np.zeros((self.num_envs, self.cfg.privileged_dim), dtype=np.float32)
-        rewards = np.zeros(self.num_envs, dtype=np.float32)
-        dones = np.zeros(self.num_envs, dtype=bool)
-        infos = []
-        all_behavior = []
+        self._info_list = [None] * self.num_envs
+        self._behavior_list = [{}] * self.num_envs
+        self._parallel_step(actions, collect_behavior=True)
 
-        for i in range(self.num_envs):
-            obs, priv, r, done, info = self.envs[i].step(actions[i])
-            obs_batch[i] = obs
-            priv_batch[i] = priv
-            rewards[i] = r
-            dones[i] = done
-            infos.append(info)
-            all_behavior.append(info.get('behavior', {}))
-
-            self.obs_history[i].append(obs)
-
-            if done:
-                obs, priv = self.envs[i].reset()
-                obs_batch[i] = obs
-                priv_batch[i] = priv
-                for _ in range(self.seq_len):
-                    self.obs_history[i].append(obs)
-
-        return obs_batch, priv_batch, rewards, dones, infos, all_behavior
+        return (self._obs_buf.copy(), self._priv_buf.copy(),
+                self._reward_buf.copy(), self._done_buf.copy(),
+                list(self._info_list), list(self._behavior_list))
 
     def get_obs_sequences(self):
         """获取所有环境的观测序列 (B, seq_len, obs_dim)"""

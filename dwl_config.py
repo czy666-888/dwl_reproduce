@@ -40,9 +40,11 @@ class DWLConfig:
 
     # ============ 训练规模 ============
     num_envs = 256              # 原论文 12288, 适配本地 GPU (T600 4GB)
-    num_steps_per_env = 24      # 论文 batch_size = 24
-    num_epochs = 2              # PPO update epochs
-    num_mini_batches = 4        # mini-batch数
+    num_steps_per_env = 96      # 原论文24, 增大到96补偿环境数不足 (256 vs 12288)
+    num_epochs = 5              # 原论文2, 增加epoch提高样本利用率, 配合KL早停
+    num_mini_batches = 8        # 原论文4, 更多mini-batch提高梯度步数
+    kl_early_stop = True        # KL早停: 当KL(old||new)超过阈值时停止epoch
+    kl_target = 0.015           # KL目标阈值
 
     # ============ 仿真参数 ============
     sim_dt = 0.001              # MuJoCo 物理步长 (1000Hz)
