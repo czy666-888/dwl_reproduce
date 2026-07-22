@@ -380,7 +380,7 @@ if __name__ == "__main__":
         # 5. 测试完整训练步
         print("\n[5/5] Testing 1 full training iteration...")
         cfg.num_epochs = 1
-        buffer = RolloutBuffer(B, T, (cfg.obs_dim,), (cfg.privileged_dim,), cfg.num_actions, cfg.state_dim, 5, device)
+        buffer = RolloutBuffer(B, T, (cfg.obs_dim,), (cfg.privileged_dim,), cfg.num_actions, cfg.state_dim, vec_env.seq_len, device)
         # 收集几步
         obs, priv = vec_env.reset()
         obs_t = torch.from_numpy(obs).to(device)
