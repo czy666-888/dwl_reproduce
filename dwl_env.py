@@ -631,7 +631,9 @@ class VecEnv:
         self.cfg = cfg
         self.num_envs = num_envs
 
-        # 线程数: 默认取CPU核数和8的较小值
+        # 线程数: 优先用cfg配置, 否则取CPU核数和8的较小值
+        if num_workers is None:
+            num_workers = getattr(cfg, 'num_workers', None)
         if num_workers is None:
             num_workers = min(os.cpu_count() or 8, 8)
         self.num_workers = max(1, num_workers)
