@@ -102,29 +102,29 @@ class DWLConfig:
     push_interval_s = 4.0
 
     # ============ 终止条件 ============
-    termination_height = 0.55        # 基座低于此高度终止 (0.35→0.55, 禁止深蹲)
+    termination_height = 0.65        # 基座低于此高度终止 (0.35→0.55→0.65, 逐步收紧防止深蹲策略)
     termination_orientation = 1.0    # roll/pitch 超过此值终止 (rad)
 
-    # ============ 奖励权重 (Table V) ============
+    # ============ 奖励权重 (Table V, XBot-L + MuJoCo 适配) ============
     class rewards:
         # 跟踪奖励 weights
         lin_vel = 1.0                 # 线速度跟踪
         ang_vel = 1.0                 # 角速度跟踪
-        orientation = 1.0             # 姿态跟踪
-        height = 2.0                  # 身高跟踪 (0.5→2.0, 强制站高)
+        orientation = 2.0             # 姿态跟踪 (0.5→1.0→2.0, 加强: 惩罚蹲姿导致的倾斜)
+        height = 6.0                  # 身高跟踪 (0.5→2.0→6.0, 核心修改: 强制机器人站立)
         periodic_contact = 1.0        # 周期性接触力
         periodic_vel = 1.0            # 周期性足部速度
         foot_height = 1.0             # 足部高度跟踪
         foot_vel = 0.5                # 足部速度跟踪
         default_joint = 0.2           # 默认关节姿态
-        energy = -0.0001              # 能耗惩罚
+        energy = -0.0005              # 能耗惩罚 (0→-0.0001→-0.0005, 蹲姿力矩大, 加重惩罚)
         action_smooth = -0.01         # 动作平滑二阶惩罚
 
-        # 跟踪 sigma (Table V)
+        # 跟踪 sigma (Table V, XBot-L适配)
         lin_vel_sigma = 5.0
         ang_vel_sigma = 7.0
-        orientation_sigma = 5.0
-        height_sigma = 10.0
+        orientation_sigma = 8.0       # (5.0→8.0, 对小幅倾斜更灵敏)
+        height_sigma = 30.0           # (10.0→30.0, 身高误差惩罚急剧增加)
         foot_height_sigma = 5.0
         foot_vel_sigma = 3.0
         default_joint_sigma = 2.0
