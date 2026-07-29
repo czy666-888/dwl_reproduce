@@ -40,7 +40,7 @@ class DWLConfig:
 
     # ============ 训练规模 ============
     num_envs = 256              # 原论文 12288, 适配本地 GPU (T600 4GB)
-    num_workers = 4             # VecEnv并行线程数 (8→4, 降噪降温)
+    num_workers = 8             # VecEnv并行线程数 (恢复8线程加速训练)
     num_steps_per_env = 96      # 原论文24, 增大到96补偿环境数不足 (256 vs 12288)
     num_epochs = 5              # 原论文2, 增加epoch提高样本利用率, 配合KL早停
     num_mini_batches = 8        # 原论文4, 更多mini-batch提高梯度步数
@@ -67,12 +67,12 @@ class DWLConfig:
 
     # ============ PD 控制参数 ============
     # stiffness/damping: leg_roll=200, leg_yaw=200, leg_pitch=350, knee=350, ankle=15
-    kps = np.array([200., 200., 350., 350., 15., 15.,
-                    200., 200., 350., 350., 15., 15.], dtype=np.float64)
-    kds = np.array([10., 10., 10., 10., 10., 10.,
-                    10., 10., 10., 10., 10., 10.], dtype=np.float64)
+    kps = np.array([200., 200., 350., 450., 15., 15.,
+                    200., 200., 350., 450., 15., 15.], dtype=np.float64)
+    kds = np.array([10., 10., 10., 15., 10., 10.,
+                    10., 10., 10., 15., 10., 10.], dtype=np.float64)
     tau_limit = 200.0           # 力矩限幅 (Nm)
-    action_scale = 0.25         # action -> 目标关节角度的缩放因子
+    action_scale = 0.35         # action -> 目标关节角度的缩放因子 (0.25→0.35, 允许更大动作幅度)
 
     # ============ 默认关节姿态 ============
     default_joint_angles = np.zeros(12, dtype=np.float64)
@@ -103,7 +103,7 @@ class DWLConfig:
     push_interval_s = 4.0
 
     # ============ 终止条件 ============
-    termination_height = 0.65        # 基座低于此高度终止 (0.35→0.55→0.65, 逐步收紧防止深蹲策略)
+    termination_height = 0.72        # 基座低于此高度终止 (0.55→0.65→0.72, 压缩蹲姿生存空间)
     termination_orientation = 1.0    # roll/pitch 超过此值终止 (rad)
 
     # ============ 奖励权重 (Table V, XBot-L + MuJoCo 适配) ============
@@ -112,7 +112,7 @@ class DWLConfig:
         lin_vel = 1.0                 # 线速度跟踪
         ang_vel = 1.0                 # 角速度跟踪
         orientation = 2.0             # 姿态跟踪 (0.5→1.0→2.0, 加强: 惩罚蹲姿导致的倾斜)
-        height = 6.0                  # 身高跟踪 (0.5→2.0→6.0, 核心修改: 强制机器人站立)
+        height = 8.0                  # 身高跟踪 (0.5→2.0→6.0→8.0, 站直占总分约50%)
         periodic_contact = 1.0        # 周期性接触力
         periodic_vel = 1.0            # 周期性足部速度
         foot_height = 1.0             # 足部高度跟踪
@@ -122,7 +122,7 @@ class DWLConfig:
         action_smooth = -0.01         # 动作平滑二阶惩罚
 
         # 跟踪 sigma (Table V, XBot-L适配)
-        lin_vel_sigma = 5.0
+        lin_vel_sigma = 3.0           # (5.0→3.0, 速度跟踪宽容些, 别为追速度牺牲站直)
         ang_vel_sigma = 7.0
         orientation_sigma = 8.0       # (5.0→8.0, 对小幅倾斜更灵敏)
         height_sigma = 30.0           # (10.0→30.0, 身高误差惩罚急剧增加)
@@ -146,7 +146,7 @@ class DWLConfig:
     clip_actions = 18.0
 
     # ============ 日志 / 保存 ============
-    save_interval = 100
+    save_interval = 20           # 每20轮保存checkpoint (缩短以便随时中断恢复)
     log_dir = "logs"
     checkpoint_dir = "checkpoints"
     device = "cuda"  # will fallback to cpu if no cuda
