@@ -72,7 +72,7 @@ class DWLConfig:
     kds = np.array([10., 10., 10., 15., 10., 10.,
                     10., 10., 10., 15., 10., 10.], dtype=np.float64)
     tau_limit = 200.0           # 力矩限幅 (Nm)
-    action_scale = 0.35         # action -> 目标关节角度的缩放因子 (0.25→0.35, 允许更大动作幅度)
+    action_scale = 0.25         # 0.25→0.35→0.25, 0.35导致动作过激频繁下蹲, 回退
 
     # ============ 默认关节姿态 ============
     default_joint_angles = np.zeros(12, dtype=np.float64)
@@ -103,7 +103,7 @@ class DWLConfig:
     push_interval_s = 4.0
 
     # ============ 终止条件 ============
-    termination_height = 0.72        # 基座低于此高度终止 (0.55→0.65→0.72, 压缩蹲姿生存空间)
+    termination_height = 0.68        # 0.65→0.72→0.68, 发现跌倒主因是瞬间下蹲, 给更大缓冲
     termination_orientation = 1.0    # roll/pitch 超过此值终止 (rad)
 
     # ============ 奖励权重 (Table V, XBot-L + MuJoCo 适配) ============
