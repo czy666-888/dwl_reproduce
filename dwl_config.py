@@ -67,8 +67,8 @@ class DWLConfig:
 
     # ============ PD 控制参数 ============
     # stiffness/damping: leg_roll=200, leg_yaw=200, leg_pitch=350, knee=350, ankle=15
-    kps = np.array([200., 200., 350., 350., 15., 15.,
-                    200., 200., 350., 350., 15., 15.], dtype=np.float64)
+    kps = np.array([200., 200., 350., 350., 25., 25.,
+                    200., 200., 350., 350., 25., 25.], dtype=np.float64)
     kds = np.array([10., 10., 10., 10., 10., 10.,
                     10., 10., 10., 10., 10., 10.], dtype=np.float64)
     tau_limit = 200.0           # 力矩限幅 (Nm)
@@ -86,7 +86,7 @@ class DWLConfig:
     ang_vel_yaw_range = [-0.3, 0.3]
 
     # ============ 域随机化 (Table II) ============
-    friction_range = [0.2, 2.0]
+    friction_range = [0.4, 2.0]  # 最小摩擦0.2→0.4, MuJoCo地面不能太滑
     motor_strength_range = [0.9, 1.1]
     added_mass_range = [-5.0, 20.0]   # kg (论文: -5~20)
     action_delay_range = [0, 0.5]     # 实际延迟范围 [0, 5]ms
