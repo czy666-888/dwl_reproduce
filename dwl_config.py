@@ -67,10 +67,10 @@ class DWLConfig:
 
     # ============ PD 控制参数 ============
     # stiffness/damping: leg_roll=200, leg_yaw=200, leg_pitch=350, knee=350, ankle=15
-    kps = np.array([200., 200., 350., 450., 15., 15.,
-                    200., 200., 350., 450., 15., 15.], dtype=np.float64)
-    kds = np.array([10., 10., 10., 15., 10., 10.,
-                    10., 10., 10., 15., 10., 10.], dtype=np.float64)
+    kps = np.array([200., 200., 350., 350., 15., 15.,
+                    200., 200., 350., 350., 15., 15.], dtype=np.float64)
+    kds = np.array([10., 10., 10., 10., 10., 10.,
+                    10., 10., 10., 10., 10., 10.], dtype=np.float64)
     tau_limit = 200.0           # 力矩限幅 (Nm)
     action_scale = 0.25         # 0.25→0.35→0.25, 0.35导致动作过激频繁下蹲, 回退
 
