@@ -111,20 +111,20 @@ class DWLConfig:
         # 跟踪奖励 weights
         lin_vel = 1.0                 # 线速度跟踪
         ang_vel = 1.0                 # 角速度跟踪
-        orientation = 2.0             # 姿态跟踪 (0.5→1.0→2.0, 加强: 惩罚蹲姿导致的倾斜)
+        orientation = 3.0             # 姿态跟踪 (1.0→2.0→3.0, 平衡压倒一切)
         height = 8.0                  # 身高跟踪 (0.5→2.0→6.0→8.0, 站直占总分约50%)
         periodic_contact = 1.0        # 周期性接触力
         periodic_vel = 1.0            # 周期性足部速度
         foot_height = 1.0             # 足部高度跟踪
         foot_vel = 0.5                # 足部速度跟踪
         default_joint = 0.2           # 默认关节姿态
-        energy = -0.0005              # 能耗惩罚 (0→-0.0001→-0.0005, 蹲姿力矩大, 加重惩罚)
-        action_smooth = -0.01         # 动作平滑二阶惩罚
+        energy = -0.0002              # 能耗惩罚 (-0.0001→-0.0005→-0.0002, 回退, 避免过度僵硬)
+        action_smooth = -0.02         # 动作平滑二阶惩罚 (-0.01→-0.02, 减少抖动, 提高稳定性)
 
         # 跟踪 sigma (Table V, XBot-L适配)
         lin_vel_sigma = 3.0           # (5.0→3.0, 速度跟踪宽容些, 别为追速度牺牲站直)
         ang_vel_sigma = 7.0
-        orientation_sigma = 8.0       # (5.0→8.0, 对小幅倾斜更灵敏)
+        orientation_sigma = 20.0      # (5→8→20, 0.3rad倾斜只拿16%分, 给平衡学习强梯度)
         height_sigma = 30.0           # (10.0→30.0, 身高误差惩罚急剧增加)
         foot_height_sigma = 5.0
         foot_vel_sigma = 3.0

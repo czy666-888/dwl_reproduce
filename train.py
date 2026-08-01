@@ -269,14 +269,25 @@ def train(args):
         if iteration % log_interval == 0 and iter_behavior:
             behavior_logger.log(iteration, iter_behavior, ep_rewards, dones.cpu().numpy() if hasattr(dones, 'cpu') else dones, iter_term_reasons)
 
+        # 统计本iteration的终止原因
+        if iter_term_reasons:
+            n_low = sum(1 for r in iter_term_reasons if r == 'low_height')
+            n_tilt = sum(1 for r in iter_term_reasons if r == 'tilted')
+            n_timeout = sum(1 for r in iter_term_reasons if r == 'timeout')
+            n_total = len(iter_term_reasons)
+        else:
+            n_low = n_tilt = n_timeout = n_total = 0
+
         # 打印
         if iteration % 1 == 0:
             elapsed = time.time() - start_time
+            fall_info = f"Falls: {n_total}(H:{n_low} T:{n_tilt} TO:{n_timeout})" if n_total > 0 else ""
             print(f"Iter {iteration:5d}/{total_iterations} | "
                   f"Reward: {mean_ep_reward:7.3f} | "
                   f"Loss: {metrics['loss/total']:7.4f} | "
                   f"Steps/s: {steps_per_sec:7.0f} | "
-                  f"Time: {elapsed/60:.1f}min")
+                  f"Time: {elapsed/60:.1f}min | "
+                  f"{fall_info}")
 
         # 保存最优模型
         if mean_ep_reward > best_mean_reward:
