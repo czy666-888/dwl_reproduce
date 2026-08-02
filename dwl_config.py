@@ -103,7 +103,7 @@ class DWLConfig:
     push_interval_s = 4.0
 
     # ============ 终止条件 ============
-    termination_height = 0.68        # 0.65→0.72→0.68, 发现跌倒主因是瞬间下蹲, 给更大缓冲
+    termination_height = 0.55        # 降到0.55让机器人跑完episode, 学会走路后再收紧
     termination_orientation = 1.0    # roll/pitch 超过此值终止 (rad)
 
     # ============ 奖励权重 (Table V, XBot-L + MuJoCo 适配) ============
